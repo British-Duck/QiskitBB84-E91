@@ -1,7 +1,7 @@
 """BB84 quantum key distribution - core protocol (no eavesdropper)."""
 import numpy as np
 from qiskit import QuantumCircuit, transpile
-from qiskit_aer import AerSimulator
+from qiskit_aer import AerSimulator 
 
 rng = np.random.default_rng() # initialize a random number generator (from numpy)
 sim = AerSimulator() # initialize the AerSimulator for running quantum circuits
@@ -46,29 +46,43 @@ def sift(a_bases, b_bases, bits) -> np.ndarray:
     matching_subset = [bits[i] for i in range(len(a_bases)) if a_bases[i] == b_bases[i]] #sift the bits based on the bases, if they match keep the bit, if not discard it
     return np.array(matching_subset)
 
+def qber(alice_key, bob_key) -> float:
+    """Quantum Bit Error Rate (QBER) between Alice's and Bob's sifted keys."""
+    if len(alice_key) != len(bob_key): #checks both array lengths are the same, if not raise an error
+        raise ValueError("Input arrays must have the same length.")
+    if len(alice_key) == 0: #if the length of the array is 0 return 0.0
+        return 0.0
+    errors = np.sum(alice_key != bob_key) #count the number of bits that don't match between Alice and Bob
+    return errors / len(alice_key) #return the number of errors divided by the total number of bits in the key
 
-# runs hte BB84 wiht n bits
-def run_bb84(n: int = 100):
-    #genrates the random bits and bases for Alice and Bob
+# runs BB84 with n qubits; eve_fraction = probability Eve intercepts each qubit
+def run_bb84(n: int = 100, eve_fraction: float = 0.0, verbose: bool = True):
+    from attacks.intercept_resend import intercept_resend  # local import avoids circular dependency
+
     a_bits  = generate_bits(n)
     a_bases = generate_bases(n)
     b_bases = generate_bases(n)
+    e_bases = generate_bases(n)  # Eve's basis guesses (only used where she intercepts)
 
-    # measure the qubits based on the encoded bits and bases, and store the results in b_bits
-    b_bits = np.array([
-        measure_qubit(encode_qubit(a_bits[i], a_bases[i]), b_bases[i])
-        for i in range(n)
-    ])
-     
-    #sift the bits based on the bases, if they match keep the bit, if not discard it
+    b_bits = np.empty(n, dtype=int)
+    for i in range(n):
+        qc = encode_qubit(a_bits[i], a_bases[i])      # Alice prepares, sends into channel
+        if rng.random() < eve_fraction:                # Eve intercepts this qubit with probability eve_fraction
+            qc = intercept_resend(qc, e_bases[i])      # Eve measures + resends her reconstruction
+        b_bits[i] = measure_qubit(qc, b_bases[i])      # Bob measures whatever arrives
+
     alice_key = sift(a_bases, b_bases, a_bits)
     bob_key   = sift(a_bases, b_bases, b_bits)
- 
-    #print the results of the BB84 protocol, including the number of qubits sent, the length of the sifted key, and whether Alice's and Bob's keys match
-    print(f"Sent {n} qubits, sifted key length: {len(alice_key)}")
-    print(f"Keys match: {np.array_equal(alice_key, bob_key)}")
-    return alice_key, bob_key
+    error_rate = qber(alice_key, bob_key)
 
-# if the script is run directly, execute the run_bb84 function
+    if verbose:
+        print(f"eve_fraction={eve_fraction:.2f} | sent {n} | sifted {len(alice_key)} | QBER {error_rate:.3f}")
+    return alice_key, bob_key, error_rate
+   
+
+
+
+# if the script is run directly, execute the run_bb84 function. Runs both wiht and wihtout eve's interception to show the difference in QBER (Quantum Bit Error Rate)
 if __name__ == "__main__":
-    run_bb84()
+    run_bb84(eve_fraction=0.0)
+    run_bb84(eve_fraction=1.0)
