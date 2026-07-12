@@ -14,6 +14,7 @@ qc_b.h(0)
 qc_b.h(0) #applies a hadamard gate to qubit 0 twice putting it back in the |0> state
 qc_b.measure(0, 0)
 
+# Run both circuits and print the results
 for name, qc in [("A: X-state, Z-measure", qc_a), ("B: X-state, X-measure", qc_b)]:
     counts = sim.run(transpile(qc, sim), shots=1000).result().get_counts()
     print(name, "->", counts)

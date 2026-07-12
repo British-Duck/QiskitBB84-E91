@@ -3,7 +3,10 @@ import numpy as np
 from qiskit import QuantumCircuit, transpile
 from qiskit_aer import AerSimulator 
 
-rng = np.random.default_rng() # initialize a random number generator (from numpy)
+
+
+
+rng = np.random.default_rng(42) # initialize a random or set seed for reproducibility
 sim = AerSimulator() # initialize the AerSimulator for running quantum circuits
 
  #creates n bits with raddnom values of 0 or 1 and turn then into a numpy array
