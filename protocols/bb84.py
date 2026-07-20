@@ -23,7 +23,7 @@ def generate_bases(n: int) -> np.ndarray:
 def encode_qubit(bit: int, basis: int) -> QuantumCircuit:
     """Alice: prepare one qubit encoding `bit` in `basis`."""
     qc = QuantumCircuit(1, 1) #initialize a quantum circuit with 1 qubit and 1 classical bit
-    # if bit and basis match apply 2 or no gates to the qubit, if they don't match apply 1 gate to the qubit
+    # X gate sets the bit value, H gate switches into the X basis - each is only applied if needed
     if bit == 1:
         qc.x(0)  # apply X gate to flip |0> to |1>  
     if basis == 1:
@@ -39,8 +39,8 @@ def measure_qubit(qc: QuantumCircuit, basis: int) -> int: #uses the initialized 
     if basis == 1:
         qc.h(0)  # apply H gate to move X states into the Z basis
     qc.measure(0, 0) #measure qubit 0 and store the result in classical bit 0
-    result = sim.run(transpile(qc, sim), shots=1).result()
-    return int(list(result.get_counts().keys())[0])
+    result = sim.run(transpile(qc, sim), shots=1).result() #run the circuit once on the simulator
+    return int(list(result.get_counts().keys())[0]) #pull Bob's single measured bit out of the counts and return it
 
 def sift(a_bases, b_bases, bits) -> np.ndarray:
     """Keep only positions where Alice's and Bob's bases agree."""
@@ -59,9 +59,11 @@ def qber(alice_key, bob_key) -> float:
     return errors / len(alice_key) #return the number of errors divided by the total number of bits in the key
 
 # runs BB84 with n qubits; eve_fraction = probability Eve intercepts each qubit
-def run_bb84(n: int = 100, eve_fraction: float = 0.0, verbose: bool = True):
-    from attacks.intercept_resend import intercept_resend  # local import avoids circular dependency
+def run_bb84(n: int = 100, eve_fraction: float = 0.0, verbose: bool = True, show_circuits: bool = False):
+    from attacks.intercept_resend import intercept_resend  #protocols dont know about attacks, so import here to avoid circular import
+    from utils.visualise import show_evolution
 
+    #generates the random bits and bases for Alice, Bob and Eve
     a_bits  = generate_bits(n)
     a_bases = generate_bases(n)
     b_bases = generate_bases(n)
@@ -69,11 +71,14 @@ def run_bb84(n: int = 100, eve_fraction: float = 0.0, verbose: bool = True):
 
     b_bits = np.empty(n, dtype=int)
     for i in range(n):
-        qc = encode_qubit(a_bits[i], a_bases[i])      # Alice prepares, sends into channel
+        qc = encode_qubit(a_bits[i], a_bases[i])       # creates qc with Alice's qubit encoded in her chosen basis
         if rng.random() < eve_fraction:                # Eve intercepts this qubit with probability eve_fraction
             qc = intercept_resend(qc, e_bases[i])      # Eve measures + resends her reconstruction
+        if show_circuits and i == 0:                   # show one specimen circuit, not all n
+            show_evolution(qc.copy(), f"BB84 specimen: bit={a_bits[i]}, basis={a_bases[i]}, bob_basis={b_bases[i]}")
         b_bits[i] = measure_qubit(qc, b_bases[i])      # Bob measures whatever arrives
 
+    #sift the bits based on the bases, if they match keep the bit, if not discard it
     alice_key = sift(a_bases, b_bases, a_bits)
     bob_key   = sift(a_bases, b_bases, b_bits)
     error_rate = qber(alice_key, bob_key)
@@ -81,7 +86,6 @@ def run_bb84(n: int = 100, eve_fraction: float = 0.0, verbose: bool = True):
     if verbose:
         print(f"eve_fraction={eve_fraction:.2f} | sent {n} | sifted {len(alice_key)} | QBER {error_rate:.3f}")
     return alice_key, bob_key, error_rate
-   
 
 
 
