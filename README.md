@@ -1,10 +1,12 @@
 # QiskitBB84-E91
- BB84 Quantum Key Distribution in Qiskit
+ BB84 & E91 Quantum Key Distribution in Qiskit
 
-A working simulation of the BB84 QKD protocol with an intercept-resend eavesdropper,
-built in current Qiskit (primitives-based API, `AerSimulator`). The aim is not just a
-running repo but one I can defend line-by-line: every gate choice traces back to the
-physics, and the eavesdropper detection is verified quantitatively against theory.
+Working simulations of two QKD protocols — prepare-and-measure **BB84** (with an
+intercept-resend eavesdropper) and entanglement-based **E91** (with a CHSH Bell-test
+security check) — built in current Qiskit (primitives-based API, `AerSimulator`). The
+aim is not just a running repo but one I can defend line-by-line: every gate choice
+traces back to the physics, and the eavesdropper detection is verified quantitatively
+against theory.
 
 Background: my BSc dissertation covered the theory of BB84/E91 and QKD security
 arguments. This project turns that theory into circuits.
@@ -49,6 +51,39 @@ At full interception (p = 1) the expected QBER is 25%. The sweep in
 
 Simulated points (10-trial means, n = 300, error bars = SEM) track the theoretical
 p/4 line. The dotted line marks the ≈11% abort threshold used in security proofs.
+
+## E91: entanglement-based QKD
+
+BB84 sends prepared states; **E91** (`protocols/e91.py`) instead shares an entangled
+Bell pair |Φ⁺⟩ = (|00⟩ + |11⟩)/√2 and lets *measurement* create the correlations. There
+is no key to steal in transit — it does not exist until Alice and Bob measure.
+
+**Bell pair** (`make_bell_pair`) — a Hadamard puts Alice's qubit into superposition and a
+CNOT entangles it with Bob's, so their outcomes are perfectly correlated when measured
+along the same axis.
+
+**Measurement** (`measure_pair`) — each side randomly picks one of three angles (an RY
+rotation about the y-axis, moving the measurement axis in the x-z plane). Alice and Bob
+share one overlapping angle, so some rounds are measured along the *same* axis and some
+along *different* axes.
+
+**Two uses for the results:**
+- **Key rounds** — where the two chose the same angle, their bits are perfectly
+  correlated on an honest channel, giving shared key bits.
+- **CHSH rounds** — where the angles differ, the results feed the Bell test. The
+  correlation function E(a, b) = ⟨v_a·v_b⟩ (bits mapped to ±1 eigenvalues) is combined
+  into S = E(0,0) − E(0,2) + E(2,0) + E(2,2). Quantum mechanics predicts |S| ≈ 2√2 ≈
+  2.83, beyond the classical limit of 2 that any local-hidden-variable theory obeys.
+
+**The security signature** — an eavesdropper (`measure_pair_with_eve`) intercepts Bob's
+qubit mid-flight, measures along her own guessed angle, and resends. That measurement
+collapses the entanglement, so her disturbance shows up two ways: key agreement drops,
+and the CHSH value S is dragged back down towards the classical bound of 2. A running
+Bell violation (|S| > 2) is itself the certificate that no one is listening.
+
+```bash
+python -m protocols.e91              # honest run, then p = 0.5 and p = 1 interception
+```
 
 ## Statistical honesty
 
@@ -97,6 +132,7 @@ python -m analysis.qber_plots      # regenerate the sweep figure
 
 ```
 protocols/bb84.py            core protocol: encode, measure, sift, QBER, runner
+protocols/e91.py             entanglement-based QKD: Bell pairs + CHSH violation test
 attacks/intercept_resend.py  Eve: measure in guessed basis, resend collapsed state
 analysis/qber_plots.py       QBER vs interception-fraction sweep (saves PNG)
 check_setup.py               environment sanity check (H on |0> gives ~50/50)
@@ -105,6 +141,5 @@ stage1_bases.py              basis-mismatch experiment (H^2 = I demonstration)
 
 ## Next steps
 
-- E91 entanglement-based protocol with a CHSH violation check (stretch goal)
 - Realistic channel noise and the QBER noise floor
 - Privacy amplification / error correction sketch
