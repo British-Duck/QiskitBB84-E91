@@ -63,27 +63,81 @@ CNOT entangles it with Bob's, so their outcomes are perfectly correlated when me
 along the same axis.
 
 **Measurement** (`measure_pair`) — each side randomly picks one of three angles (an RY
-rotation about the y-axis, moving the measurement axis in the x-z plane). Alice and Bob
-share one overlapping angle, so some rounds are measured along the *same* axis and some
-along *different* axes.
+rotation about the y-axis, moving the measurement axis in the x-z plane). Alice uses
+{0, π/4, π/2}, Bob uses {π/4, π/2, 3π/4} — the standard Ekert sets.
 
 **Two uses for the results:**
-- **Key rounds** — where the two chose the same angle, their bits are perfectly
+- **Key rounds** — where the two chose the same angle (π/4 or π/2, the overlap of
+  their sets), their bits are perfectly
   correlated on an honest channel, giving shared key bits.
 - **CHSH rounds** — where the angles differ, the results feed the Bell test. The
   correlation function E(a, b) = ⟨v_a·v_b⟩ (bits mapped to ±1 eigenvalues) is combined
   into S = E(0,0) − E(0,2) + E(2,0) + E(2,2). Quantum mechanics predicts |S| ≈ 2√2 ≈
   2.83, beyond the classical limit of 2 that any local-hidden-variable theory obeys.
 
-**The security signature** — an eavesdropper (`measure_pair_with_eve`) intercepts Bob's
-qubit mid-flight, measures along her own guessed angle, and resends. That measurement
-collapses the entanglement, so her disturbance shows up two ways: key agreement drops,
-and the CHSH value S is dragged back down towards the classical bound of 2. A running
-Bell violation (|S| > 2) is itself the certificate that no one is listening.
+**Measured, honest channel** (2,000 pairs, seeded): key agreement **1.000**, and
+**S ≈ 2.82–2.89** across runs — a clear Bell violation, consistent with the Tsirelson
+bound 2√2 within sampling error (each correlator only receives ~2000/9 ≈ 220 pairs,
+so the SEM on S is roughly ±0.13).
 
-```bash
-python -m protocols.e91              # honest run, then p = 0.5 and p = 1 interception
+### Watching the physics: state evolution trace
+
+`utils/visualise.py` prints the statevector in Dirac notation after every gate, and —
+using the projection postulate directly (`Statevector.measure`) — samples measurement
+outcomes with a seeded RNG so the trace continues *through* collapse rather than
+halting at it. One honest CHSH round (θ_A = 0, θ_B = 3π/4):
+
+```text
+t=0 |start⟩ = 1.000|00⟩
+t=1 after h[0]:     0.707|00⟩ + 0.707|01⟩
+t=2 after cx[0, 1]: 0.707|00⟩ + 0.707|11⟩          <- Bell pair: non-factorisable
+t=3 after ry[0]:    0.707|00⟩ + 0.707|11⟩          <- θ_A = 0: identity rotation
+t=4 after ry[1]:    0.271|00⟩ + 0.653|01⟩ - 0.653|10⟩ + 0.271|11⟩
+t=5 MEASURE q0 -> bit value 1 (stored in clbit 0)
+      state collapses to: 0.924|01⟩ + 0.383|11⟩
+t=6 MEASURE q1 -> bit value 0 (stored in clbit 1)
+      state collapses to: 1.000|01⟩
 ```
+
+(Kets are little-endian: in |q1 q0⟩ the rightmost bit is qubit 0.) The collapse at t=5
+is verifiable by hand: Alice's outcome 1 keeps only the kets whose rightmost bit is 1
+(amplitudes 0.653 and 0.271), and renormalising by √(0.653² + 0.271²) ≈ 0.707 gives
+exactly the printed 0.924 and 0.383.
+
+Under interception, the same trace shows Eve's mid-circuit measurement snapping the
+entangled state into a *product* state — the moment the Bell violation dies:
+
+t=0 |start⟩ = 1.000|00⟩
+t=1 after h[0]: 0.707|00⟩ + 0.707|01⟩
+t=2 after cx[0, 1]: 0.707|00⟩ + 0.707|11⟩          <- Bell pair
+t=3 after ry[1]: 0.271|00⟩ + 0.653|01⟩ - 0.653|10⟩ + 0.271|11⟩
+t=4 MEASURE q1 -> bit value 1 (stored in clbit 2)   <- Eve intercepts
+      state collapses to: -0.924|10⟩ + 0.383|11⟩    <- PRODUCT state: q1 is fixed at 1
+t=5 after ry[1]: 0.854|00⟩ - 0.354|01⟩ - 0.354|10⟩ + 0.146|11⟩   <- Eve resends
+t=6 after ry[0]: 0.854|00⟩ - 0.354|01⟩ - 0.354|10⟩ + 0.146|11⟩   <- Alice rotates
+t=7 after ry[1]: 0.653|00⟩ - 0.271|01⟩ - 0.653|10⟩ + 0.271|11⟩   <- Bob rotates
+t=8 MEASURE q0 -> bit value 1 (stored in clbit 0)   <- Alice measures
+      state collapses to: -0.707|01⟩ + 0.707|11⟩
+t=9 MEASURE q1 -> bit value 1 (stored in clbit 1)   <- Bob measures
+      state collapses to: 1.000|11⟩
+
+### The security signature
+
+An eavesdropper (`measure_pair_with_eve`) intercepts Bob's qubit mid-flight, measures
+along her own guessed angle, and resends. That measurement collapses the entanglement,
+so her disturbance shows up two ways: key agreement drops, and the CHSH value S is
+dragged back down below the classical bound of 2. A running Bell violation (|S| > 2)
+is itself the certificate that no one is listening.
+
+![CHSH S vs interception fraction](analysis/chsh_vs_eve.png)
+
+**Measured under attack:** S ≈ 2.32 at p = 0.5 and S ≈ 1.37 at full interception —
+*below* the classical bound of 2. This falsified my registered prediction: a naive
+mixing model S(p) = (1−p)·2√2 + p·2 assumes Eve's intercepted pairs achieve the
+classical maximum, but |S| ≤ 2 is a ceiling for optimised local strategies, not a
+guarantee — a random-basis eavesdropper lands well below it.
+
+
 
 ## Statistical honesty
 
@@ -107,7 +161,7 @@ systems face: estimating QBER costs key material, and statistical power sets how
   bits and everyone's basis choices are classical coin flips; the only quantum
   randomness is the Born rule at measurement. (In simulation even that is pseudorandom;
   on hardware it is believed fundamentally irreducible.)
-- **Seeded RNG (42)** for reproducible figures.
+- **Seeded RNG (42)** for reproducible figures and reproducible trace specimens.
 
 ## What BB84 actually promises
 
@@ -115,7 +169,9 @@ Not that Eve cannot listen — that she cannot listen *without leaving evidence*
 Information gain forces disturbance; disturbance is measurable as QBER. Alice and Bob
 either obtain a key Eve provably knows almost nothing about, or they abort having lost
 nothing but qubits — Eve's ~75%-correlated transcript points at a key that no longer
-exists. The abort is not a failure mode; it is the security working.
+exists. The abort is not a failure mode; it is the security working. E91 sharpens the
+same idea: the Bell violation is a *device-independent* tamper seal — it certifies the
+correlations themselves, whatever produced them.
 
 ## Run it
 
@@ -124,8 +180,10 @@ python -m venv .venv
 source .venv/Scripts/activate      # Git Bash on Windows; use activate.bat in cmd
 pip install -r requirements.txt
 
-python -m protocols.bb84           # clean channel vs full interception
-python -m analysis.qber_plots      # regenerate the sweep figure
+python -m protocols.bb84           # BB84: clean channel vs full interception
+python -m analysis.qber_plots      # regenerate the QBER sweep figure
+python -m protocols.e91            # E91: honest + intercepted specimens with traces
+python -m analysis.chsh_sweep      # regenerate the CHSH-vs-interception figure
 ```
 
 ## Repo structure
@@ -135,11 +193,16 @@ protocols/bb84.py            core protocol: encode, measure, sift, QBER, runner
 protocols/e91.py             entanglement-based QKD: Bell pairs + CHSH violation test
 attacks/intercept_resend.py  Eve: measure in guessed basis, resend collapsed state
 analysis/qber_plots.py       QBER vs interception-fraction sweep (saves PNG)
+analysis/chsh_sweep.py       CHSH S vs interception-fraction sweep (saves PNG)
+analysis/state_evolution.py  prints the specimen traces shown above
+utils/visualise.py           circuit drawing + Dirac-notation state evolution trace
 check_setup.py               environment sanity check (H on |0> gives ~50/50)
 stage1_bases.py              basis-mismatch experiment (H^2 = I demonstration)
 ```
 
 ## Next steps
 
-- Realistic channel noise and the QBER noise floor
+- Corrected eavesdropper model for E91 (S_Eve derivation — in progress)
+- Realistic channel noise (depolarizing model) and the QBER noise floor
+- Device-independent QKD framing: CHSH as the security certificate
 - Privacy amplification / error correction sketch
