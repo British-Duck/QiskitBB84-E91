@@ -189,9 +189,11 @@ no one is listening.
 | 1.0 | 0.806 | 1.361 | 2.000 |
 
 Both signatures move together: agreement falls away from 1.000 as S falls away from
-2√2. At p = 0.5 the violation survives — S = 2.135 is still above the classical bound,
-so a half-hearted eavesdropper is *not* reliably caught by the Bell test alone at this
-sample size. Only at full interception does S = 1.361 drop clearly below 2.
+2√2. But note where S = 2.135 sits — *above* the classical bound. The sweep above puts
+the crossing at **p ≈ 0.63**: below that, Eve is intercepting yet the Bell violation
+still stands, so the CHSH test alone does not flag her at this sample size. Key
+agreement does (0.905 at p = 0.5), which is why the protocol watches both. Only past
+the crossover does S fall clearly below 2, reaching 1.361 at full interception.
 
 The last column is my registered prediction, and the data falsified it: the naive
 mixing model S(p) = (1−p)·2√2 + p·2 assumes Eve's intercepted pairs achieve the
