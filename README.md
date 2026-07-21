@@ -85,7 +85,25 @@ so the SEM on S is roughly ±0.13).
 `utils/visualise.py` prints the statevector in Dirac notation after every gate, and —
 using the projection postulate directly (`Statevector.measure`) — samples measurement
 outcomes with a seeded RNG so the trace continues *through* collapse rather than
-halting at it. One honest CHSH round (θ_A = 0, θ_B = 3π/4):
+halting at it. Kets are little-endian: in |q1 q0⟩ the rightmost bit is qubit 0.
+
+The two specimens below are *examples* of circuits E91 runs — one honest round, one
+intercepted — each built from a legal draw of the protocol's angle sets. The exact
+angles a given run picks are random, so these illustrate the structure rather than
+reproduce any particular run's output. Each gate gets a timestep barrier (`t1`, `t2`,
+…), so the circuit diagram and the trace beneath it line up step for step.
+
+#### Specimen 1 — honest CHSH round (θ_A = 0, θ_B = 3π/4)
+
+```text
+     ┌───┐ t1       t2 ┌───────┐ t3               t4 ┌─┐ t5     t6
+q_0: ┤ H ├─░────■───░──┤ Ry(0) ├─░────────────────░──┤M├─░──────░──
+     └───┘ ░  ┌─┴─┐ ░  └───────┘ ░  ┌───────────┐ ░  └╥┘ ░  ┌─┐ ░
+q_1: ──────░──┤ X ├─░────────────░──┤ Ry(-3π/4) ├─░───╫──░──┤M├─░──
+           ░  └───┘ ░            ░  └───────────┘ ░   ║  ░  └╥┘ ░
+c: 2/═════════════════════════════════════════════════╩══════╩═════
+                                                      0      1
+```
 
 ```text
 t=0 |start⟩ = 1.000|00⟩
@@ -99,45 +117,87 @@ t=6 MEASURE q1 -> bit value 0 (stored in clbit 1)
       state collapses to: 1.000|01⟩
 ```
 
-(Kets are little-endian: in |q1 q0⟩ the rightmost bit is qubit 0.) The collapse at t=5
-is verifiable by hand: Alice's outcome 1 keeps only the kets whose rightmost bit is 1
-(amplitudes 0.653 and 0.271), and renormalising by √(0.653² + 0.271²) ≈ 0.707 gives
-exactly the printed 0.924 and 0.383.
+The collapse at t=5 is verifiable by hand: Alice's outcome 1 keeps only the kets whose
+rightmost bit is 1 (amplitudes 0.653 and 0.271), and renormalising by
+√(0.653² + 0.271²) ≈ 0.707 gives exactly the printed 0.924 and 0.383.
 
-Under interception, the same trace shows Eve's mid-circuit measurement snapping the
-entangled state into a *product* state — the moment the Bell violation dies:
+#### Specimen 2 — intercepted CHSH round (θ_A = 0, θ_E = 3π/4, θ_B = π/4)
 
+Eve's rotate → measure → rotate-back sits on qubit 1 at t3–t5, ahead of Alice's and
+Bob's own rotations:
+
+```text
+     ┌───┐ t1       t2               t3     t4              t5 ┌───────┐ t6 »
+q_0: ┤ H ├─░────■───░────────────────░──────░───────────────░──┤ Ry(0) ├─░──»
+     └───┘ ░  ┌─┴─┐ ░  ┌───────────┐ ░  ┌─┐ ░  ┌──────────┐ ░  └───────┘ ░  »
+q_1: ──────░──┤ X ├─░──┤ Ry(-3π/4) ├─░──┤M├─░──┤ Ry(3π/4) ├─░────────────░──»
+           ░  └───┘ ░  └───────────┘ ░  └╥┘ ░  └──────────┘ ░            ░  »
+c: 3/════════════════════════════════════╩══════════════════════════════════»
+                                         2                                  »
+«                  t7 ┌─┐ t8     t9
+«q_0: ─────────────░──┤M├─░──────░──
+«     ┌──────────┐ ░  └╥┘ ░  ┌─┐ ░
+«q_1: ┤ Ry(-π/4) ├─░───╫──░──┤M├─░──
+«     └──────────┘ ░   ║  ░  └╥┘ ░
+«c: 3/═════════════════╩══════╩═════
+«                      0      1
+```
+
+The same trace now shows Eve's mid-circuit measurement snapping the entangled state
+into a *product* state — the moment the Bell violation dies:
+
+```text
 t=0 |start⟩ = 1.000|00⟩
-t=1 after h[0]: 0.707|00⟩ + 0.707|01⟩
+t=1 after h[0]:     0.707|00⟩ + 0.707|01⟩
 t=2 after cx[0, 1]: 0.707|00⟩ + 0.707|11⟩          <- Bell pair
-t=3 after ry[1]: 0.271|00⟩ + 0.653|01⟩ - 0.653|10⟩ + 0.271|11⟩
-t=4 MEASURE q1 -> bit value 1 (stored in clbit 2)   <- Eve intercepts
-      state collapses to: -0.924|10⟩ + 0.383|11⟩    <- PRODUCT state: q1 is fixed at 1
-t=5 after ry[1]: 0.854|00⟩ - 0.354|01⟩ - 0.354|10⟩ + 0.146|11⟩   <- Eve resends
-t=6 after ry[0]: 0.854|00⟩ - 0.354|01⟩ - 0.354|10⟩ + 0.146|11⟩   <- Alice rotates
-t=7 after ry[1]: 0.653|00⟩ - 0.271|01⟩ - 0.653|10⟩ + 0.271|11⟩   <- Bob rotates
-t=8 MEASURE q0 -> bit value 1 (stored in clbit 0)   <- Alice measures
+t=3 after ry[1]:    0.271|00⟩ + 0.653|01⟩ - 0.653|10⟩ + 0.271|11⟩
+t=4 MEASURE q1 -> bit value 1 (stored in clbit 2)  <- Eve intercepts
+      state collapses to: -0.924|10⟩ + 0.383|11⟩   <- PRODUCT state: q1 is fixed at 1
+t=5 after ry[1]:    0.854|00⟩ - 0.354|01⟩ - 0.354|10⟩ + 0.146|11⟩  <- Eve resends
+t=6 after ry[0]:    0.854|00⟩ - 0.354|01⟩ - 0.354|10⟩ + 0.146|11⟩  <- Alice rotates
+t=7 after ry[1]:    0.653|00⟩ - 0.271|01⟩ - 0.653|10⟩ + 0.271|11⟩  <- Bob rotates
+t=8 MEASURE q0 -> bit value 1 (stored in clbit 0)  <- Alice measures
       state collapses to: -0.707|01⟩ + 0.707|11⟩
-t=9 MEASURE q1 -> bit value 1 (stored in clbit 1)   <- Bob measures
+t=9 MEASURE q1 -> bit value 1 (stored in clbit 1)  <- Bob measures
       state collapses to: 1.000|11⟩
+```
+
+Contrast the timing of the first collapse. In the honest round nothing collapses until
+Alice measures at t=5, and the pair is still entangled right up to that point. Here the
+first measurement is Eve's, at t=4 — from then on q1 is pinned to 1 and the state
+factorises. Alice's outcome at t=8 can no longer be correlated with Bob's *through the
+Bell state*, only through whatever Eve happened to resend, which is why both the key
+agreement and S degrade together.
 
 ### The security signature
 
 An eavesdropper (`measure_pair_with_eve`) intercepts Bob's qubit mid-flight, measures
 along her own guessed angle, and resends. That measurement collapses the entanglement,
 so her disturbance shows up two ways: key agreement drops, and the CHSH value S is
-dragged back down below the classical bound of 2. A running Bell violation (|S| > 2)
-is itself the certificate that no one is listening.
+dragged down towards — and, once she intercepts enough of the stream, below — the
+classical bound of 2. A running Bell violation (|S| > 2) is itself the certificate that
+no one is listening.
 
 ![CHSH S vs interception fraction](analysis/chsh_vs_eve.png)
 
-**Measured under attack:** S ≈ 2.32 at p = 0.5 and S ≈ 1.37 at full interception —
-*below* the classical bound of 2. This falsified my registered prediction: a naive
+**Measured under attack** (2,000 pairs per run, seed 42):
+
+| p (interception) | key agreement | S | naive mixing model |
+|---|---|---|---|
+| 0.0 | 1.000 | 2.818 | 2.828 |
+| 0.5 | 0.905 | 2.135 | 2.414 |
+| 1.0 | 0.806 | 1.361 | 2.000 |
+
+Both signatures move together: agreement falls away from 1.000 as S falls away from
+2√2. At p = 0.5 the violation survives — S = 2.135 is still above the classical bound,
+so a half-hearted eavesdropper is *not* reliably caught by the Bell test alone at this
+sample size. Only at full interception does S = 1.361 drop clearly below 2.
+
+The last column is my registered prediction, and the data falsified it: the naive
 mixing model S(p) = (1−p)·2√2 + p·2 assumes Eve's intercepted pairs achieve the
-classical maximum, but |S| ≤ 2 is a ceiling for optimised local strategies, not a
-guarantee — a random-basis eavesdropper lands well below it.
-
-
+classical maximum, so it over-predicts at every p > 0. But |S| ≤ 2 is a ceiling for
+*optimised* local strategies, not a guarantee — a random-basis eavesdropper lands well
+below it, which is why the p = 1 measurement comes in at 1.36 rather than 2.
 
 ## Statistical honesty
 
@@ -184,7 +244,12 @@ python -m protocols.bb84           # BB84: clean channel vs full interception
 python -m analysis.qber_plots      # regenerate the QBER sweep figure
 python -m protocols.e91            # E91: honest + intercepted specimens with traces
 python -m analysis.chsh_sweep      # regenerate the CHSH-vs-interception figure
+python -m analysis.state_evolution # standalone BB84/E91 trace examples
 ```
+
+The traces print Dirac kets (`⟩`), which a stock Windows console encodes as cp1252 and
+dies on. If you hit a `UnicodeEncodeError`, set `PYTHONIOENCODING=utf-8` (or run
+`chcp 65001` first).
 
 ## Repo structure
 
@@ -194,8 +259,9 @@ protocols/e91.py             entanglement-based QKD: Bell pairs + CHSH violation
 attacks/intercept_resend.py  Eve: measure in guessed basis, resend collapsed state
 analysis/qber_plots.py       QBER vs interception-fraction sweep (saves PNG)
 analysis/chsh_sweep.py       CHSH S vs interception-fraction sweep (saves PNG)
-analysis/state_evolution.py  prints the specimen traces shown above
+analysis/state_evolution.py  standalone BB84 + matched-angle E91 trace examples
 utils/visualise.py           circuit drawing + Dirac-notation state evolution trace
+                             (source of the specimen traces shown above)
 check_setup.py               environment sanity check (H on |0> gives ~50/50)
 stage1_bases.py              basis-mismatch experiment (H^2 = I demonstration)
 ```

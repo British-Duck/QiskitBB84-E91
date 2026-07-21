@@ -1,25 +1,13 @@
-"""Show circuit diagrams with timestep barriers and the state after each gate."""
+"""Standalone BB84/E91 state-evolution specimens.
+
+The trace itself lives in utils/visualise.py -- this module only supplies the
+example circuits. (It previously carried its own older copy of show_evolution
+that halted at measurement; the shared one traces through collapse.)
+"""
 import numpy as np
 from qiskit import QuantumCircuit
-from qiskit.quantum_info import Statevector
 
-def show_evolution(qc: QuantumCircuit, title: str):
-    """Print the circuit and the statevector after every gate (measurements skipped)."""
-    print(f"\n=== {title} ===")
-    print(qc.draw(output="text"))
-    sv = Statevector.from_label("0" * qc.num_qubits)
-    print(f"t=0  |start>      : {sv.draw('latex_source')}")
-    t = 1
-    for inst in qc.data:
-        name = inst.operation.name
-        if name in ("measure", "barrier"):
-            continue                       # statevector evolution stops at collapse
-        idx = [qc.find_bit(q).index for q in inst.qubits]
-        step = QuantumCircuit(qc.num_qubits)
-        step.append(inst.operation, idx)
-        sv = sv.evolve(step)
-        print(f"t={t}  after {name}{idx}: {sv.draw('latex_source')}")
-        t += 1
+from utils.visualise import show_evolution
 
 if __name__ == "__main__":
     # BB84 example: bit=1, X basis (Alice), Bob measures in X

@@ -29,7 +29,11 @@ def _dirac(sv: Statevector, tol: float = 1e-9) -> str:
             coeff = f"({amp.real:.3f}{amp.imag:+.3f}i)"
         terms.append(f"{sign} {coeff}|{label}\u27e9")
     out = " ".join(terms)
-    return out[2:] if out.startswith("+ ") else out
+    if out.startswith("+ "):
+        return out[2:]
+    if out.startswith("- "):          # leading minus binds to the coefficient
+        return "-" + out[2:]
+    return out
 
 def _annotated(qc: QuantumCircuit) -> QuantumCircuit:
     """Copy of qc with a labelled barrier after each gate: t1, t2, ..."""
