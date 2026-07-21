@@ -71,14 +71,14 @@ def run_e91(n_pairs: int = 2000, eve_fraction: float = 0.0, verbose: bool = True
                 qc, ALICE_ANGLES[a_settings[i]], BOB_ANGLES[b_settings[i]],
                 BOB_ANGLES[e_settings[i]])
             if show_circuits and not shown_eve:     # specimen: trace halts at Eve's mid-circuit collapse
-                show_evolution(qc.copy(), "E91 specimen: intercepted pair")
+                show_evolution(qc.copy(), "E91 specimen - CHSH test round QC: intercepted pair")
                 shown_eve = True
         else:
             qc = make_bell_pair()
             a_bits[i], b_bits[i] = measure_pair(qc, ALICE_ANGLES[a_settings[i]],
                                                     BOB_ANGLES[b_settings[i]])
             if show_circuits and not shown_honest:
-                show_evolution(qc.copy(), "E91 specimen: honest pair")
+                show_evolution(qc.copy(), "E91 specimen - CHSH test round QC: honest pair")
                 shown_honest = True
 
     # --- key generation rounds ---

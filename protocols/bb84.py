@@ -91,5 +91,6 @@ def run_bb84(n: int = 100, eve_fraction: float = 0.0, verbose: bool = True, show
 
 # if the script is run directly, execute the run_bb84 function. Runs both wiht and wihtout eve's interception to show the difference in QBER (Quantum Bit Error Rate)
 if __name__ == "__main__":
-    run_bb84(eve_fraction=0.0)
-    run_bb84(eve_fraction=1.0)
+    run_bb84(eve_fraction=0.0, show_circuits=True) #run BB84 without Eve's interception
+    run_bb84(eve_fraction=0.5) #run BB84 with Eve's interception
+    run_bb84(eve_fraction=1.0, show_circuits=True) #run BB84 with Eve's interception
